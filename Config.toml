@@ -4,10 +4,14 @@ en_model = "all-MiniLM-L12-v2"
 es_model = "sentence_similarity_spanish_es"
 vocab_filename = "/vocab.txt"
 
-documents_folder = "resources/documents/"
+catalogue_folder = "resources/catalogue/"
 encodings_folder = "resources/encodings/"
 reference_folder = "resources/reference/"
+laws_folder = "resources/laws/"
 
-documents_extension = ".law"
+catalogue_extension = ".txt"
 encodings_extension = ".enc"
 reference_extension = ".toml"
+
+laws_extension = ".law"
+laws_config_extension = ".config.toml"

@@ -1,4 +1,4 @@
-# dictum_rs
+# tsahdu_rs
 Open source tools to provide free of charge unprofessional automatic legal assistance
 
 ## Aviable Countries
