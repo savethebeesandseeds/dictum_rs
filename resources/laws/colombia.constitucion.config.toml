@@ -3,5 +3,5 @@ regex_capitulo = '''(?P<capitulo>CAPÍTULO+.\d+ - )'''
 regex_articulo = '''(?P<articulo>ARTÍCULO+.*+\.)'''
 
 minimum_window_size = "4"   # min amount of words in a phrase of law
-maximum_window_size = "412" # max amount of words in a phrase of law
-window_retrocede = "64"     # if maximum_window_size is superated how many words to go back
+maximum_window_size = "50" # max amount of words in a phrase of law
+window_retrocede = "10"     # if maximum_window_size is superated how many words to go back

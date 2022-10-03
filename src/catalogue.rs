@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use std::sync::Mutex;
 use std::fs;
 use std::fs::DirEntry;
+use std::fs::create_dir_all;
 use rocket::serde::{Serialize, Deserialize};
 use std::cmp::Eq;
 
@@ -51,17 +52,6 @@ pub fn read_reference_file(filepath: &DirEntry) -> (String, String, String, u16,
   let parte = filecontent["parte"].parse::<i16>().unwrap();
   let parte: Option<u16> = if parte<0 { None } else { Some(parte.try_into().unwrap()) };
   return (dref,pais,instrumento, titulo,capitulo, articulo,parte);
-}
-
-pub fn catalogue_reference_filename(reference: &TsahduCatalogueReference) -> String {
-  format!(
-r#"{}.{}.titulo-{}.capitulo-{}.articulo-{}{}"#,
-    reference.dindex.book.pais,
-    reference.dindex.book.instrumento,
-    reference.dindex.titulo,
-    reference.dindex.capitulo,
-    reference.dindex.articulo,
-    if reference.dindex.parte.is_none() {"".to_string()}  else {format!(".parte-{}",reference.dindex.parte.unwrap()).to_string()})
 }
 
 pub fn catalogue_reference_to_string(reference: &TsahduCatalogueReference) -> String {
@@ -126,13 +116,22 @@ pub fn load_catalogues_memory(force_load: bool) {
 }
 
 pub fn save_catalogue(doc: &TsahduCatalogue) {
-  fs::write(format!("{}{}{}",utils::config_reference_folder(),&catalogue_reference_filename(&doc.reference),utils::config_reference_extension()),catalogue_reference_to_string(&doc.reference))
-    .expect(format!("{}{}{}",utils::config_reference_folder(),utils::error_message("E0008"),&doc.reference.dref).as_str());
-  fs::write(format!("{}{}{}",utils::config_catalogues_folder(),&doc.reference.dref,utils::config_catalogues_extension()),&doc.phrase.text)
-    .expect(format!("{}{}{}",utils::config_catalogues_folder(),utils::error_message("E0004"),&doc.reference.dref).as_str());
-  fs::write(format!("{}{}{}",utils::config_encodings_folder(),&doc.reference.dref,utils::config_encodings_extension()),&doc.encoding
+  let reference_foldername = format!("{}",utils::config_reference_folder());
+  let catalogue_foldername = format!("{}",utils::config_catalogues_folder());
+  let encodings_foldername = format!("{}",utils::config_encodings_folder());
+  create_dir_all(reference_foldername.clone()).unwrap();
+  create_dir_all(catalogue_foldername.clone()).unwrap();
+  create_dir_all(encodings_foldername.clone()).unwrap();
+  let reference_filename = format!("{}{}{}",reference_foldername.clone(),&laws::law_index_filename(&doc.reference.dindex),utils::config_reference_extension());
+  let catalogue_filename = format!("{}{}{}",catalogue_foldername.clone(),&doc.reference.dref,utils::config_catalogues_extension());
+  let encodings_filename = format!("{}{}{}",encodings_foldername.clone(),&doc.reference.dref,utils::config_encodings_extension());
+  fs::write(reference_filename.clone(),catalogue_reference_to_string(&doc.reference))
+    .expect(format!("{}: {}",utils::error_message("E0008"),reference_filename.clone()).as_str());
+  fs::write(catalogue_filename.clone(),&doc.phrase.text)
+    .expect(format!("{}: {}",utils::error_message("E0004"),catalogue_filename.clone()).as_str());
+  fs::write(encodings_filename.clone(),&doc.encoding
     .iter().map(|x| x.to_string()).collect::<Vec<String>>().join("\n"))
-    .expect(format!("{}{}{}",utils::config_encodings_folder(),utils::error_message("E0005"),&doc.reference.dref).as_str());
+    .expect(format!("{}: {}",utils::error_message("E0005"),encodings_filename.clone()).as_str());
 }
 
 pub fn reference_fabric(

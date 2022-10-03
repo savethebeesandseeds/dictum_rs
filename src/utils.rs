@@ -77,22 +77,22 @@ pub fn tsahdu_config() -> HashMap<String, String> {
 }
 // Get the configured Language 
 pub fn config_language() -> String {
-  return tsahdu_config()["language"].clone();
+  return tsahdu_config().get("language").expect(format!("Key not found in Config: language").as_str()).clone();
 }
 // Get the configured path for models 
 pub fn config_models_path() -> String {
-  return tsahdu_config()["models_path"].clone();
+  return tsahdu_config().get("models_path").expect(format!("Key not found in Config: models_path").as_str()).clone();
 }
 // Get the configured path for models 
 pub fn config_vocab_filename() -> String {
-  return tsahdu_config()["vocab_filename"].clone();
+  return tsahdu_config().get("vocab_filename").expect(format!("Key not found in Config: vocab_filename").as_str()).clone();
 }
 // Get the configured Transformer Model
 pub fn config_model() -> String {
   if config_language() == "es" {
-    return tsahdu_config()["es_model"].clone();
+    return tsahdu_config().get("es_model").expect(format!("Key not found in Config: es_model").as_str()).clone();
   } else if config_language() == "en" {
-    return tsahdu_config()["en_model"].clone();
+    return tsahdu_config().get("en_model").expect(format!("Key not found in Config: en_model").as_str()).clone();
   } else {
     panic!("{}",error_message("E0000"));
   }
@@ -110,39 +110,39 @@ pub fn config_vocab_file() -> String {
 
 // Get the catalogues folder
 pub fn config_catalogues_folder() -> String {
-  return tsahdu_config()["catalogues_folder"].clone();
+  return tsahdu_config().get("catalogue_folder").expect(format!("Key not found in Config: catalogue_folder").as_str()).clone();
 }
 // Get the encodings folder
 pub fn config_encodings_folder() -> String {
-  return tsahdu_config()["encodings_folder"].clone();
+  return tsahdu_config().get("encodings_folder").expect(format!("Key not found in Config: encodings_folder").as_str()).clone();
 }
 // Get the reference folder
 pub fn config_reference_folder() -> String {
-  return tsahdu_config()["reference_folder"].clone();
+  return tsahdu_config().get("reference_folder").expect(format!("Key not found in Config: reference_folder").as_str()).clone();
 }
 // Get the laws folder
 pub fn config_laws_folder() -> String {
-  return tsahdu_config()["laws_folder"].clone();
+  return tsahdu_config().get("laws_folder").expect(format!("Key not found in Config: laws_folder").as_str()).clone();
 }
 // Get the catalogues extension
 pub fn config_catalogues_extension() -> String {
-  return tsahdu_config()["catalogues_extension"].clone();
+  return tsahdu_config().get("catalogue_extension").expect(format!("Key not found in Config: catalogue_extension").as_str()).clone();
 }
 // Get the encodings extension
 pub fn config_encodings_extension() -> String {
-  return tsahdu_config()["encodings_extension"].clone();
+  return tsahdu_config().get("encodings_extension").expect(format!("Key not found in Config: encodings_extension").as_str()).clone();
 }
 // Get the reference extension
 pub fn config_reference_extension() -> String {
-  return tsahdu_config()["reference_extension"].clone();
+  return tsahdu_config().get("reference_extension").expect(format!("Key not found in Config: reference_extension").as_str()).clone();
 }
 // Get the law extension
 pub fn config_law_extension() -> String {
-  return tsahdu_config()["laws_extension"].clone();
+  return tsahdu_config().get("laws_extension").expect(format!("Key not found in Config: laws_extension").as_str()).clone();
 }
 // Get the law configuration extension
 pub fn config_law_config_extension() -> String {
-  return tsahdu_config()["laws_config_extension"].clone();
+  return tsahdu_config().get("laws_config_extension").expect(format!("Key not found in Config: laws_config_extension").as_str()).clone();
 }
 // Get the law configuration extension
 pub fn config_law(book: &laws::LawBook) -> HashMap<String,String> {

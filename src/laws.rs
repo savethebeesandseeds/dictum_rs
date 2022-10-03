@@ -2,7 +2,6 @@ use lazy_static::lazy_static;
 use std::collections::HashMap;
 use std::sync::Mutex;
 use std::fs;
-use std::fs::DirEntry;
 use std::fs::create_dir_all;
 use rocket::serde::{Serialize, Deserialize};
 use std::cmp::Eq;
@@ -10,7 +9,6 @@ use regex::Regex;
 use std::ops::Range;
 
 use crate::utils;
-use crate::language;
 use crate::catalogue;
 
 #[derive(Clone)]
@@ -49,16 +47,16 @@ pub enum TextOfLawValidation {
 }
 
 lazy_static! {
-  static ref LAW_MEMORY: Mutex<HashMap<LawIndex,String>> = Mutex::new(
+  static ref LAWS_MEMORY: Mutex<HashMap<LawIndex,String>> = Mutex::new(
     HashMap::new()
   );
 }
 
-pub fn consult_law_memory(reference: &LawIndex) -> String {
-  if !(LAW_MEMORY.lock().unwrap().contains_key(reference)) {
+pub fn consult_laws_memory(reference: &LawIndex) -> String {
+  if !(LAWS_MEMORY.lock().unwrap().contains_key(reference)) {
     return utils::error_message("E0010");
   }
-  return LAW_MEMORY.lock().unwrap().get(reference).unwrap().clone();
+  return LAWS_MEMORY.lock().unwrap().get(reference).unwrap().clone();
 }
 
 pub fn regex_interpret_law(regex_expresion: &str, text: &String) -> Vec<(u16,Range<usize>)> {
@@ -142,6 +140,25 @@ pub fn mark_text_of_law(text_of_law: &String, book: &LawBook) -> Vec<(LawMark, u
   marks.sort_by(|a,b| a.2.end.partial_cmp(&b.2.end).unwrap());
   return marks;
 }
+pub fn law_mech(phrase_of_law: &String, law_index: &LawIndex) {
+  let segments = segment_phrase_of_law(phrase_of_law, law_index);
+  if !segments.is_empty() {
+    // Save catalgues
+    for seg in segments {
+      catalogue::save_catalogue(&catalogue::catalogue_fabric(
+        seg.0.book.pais.clone().to_lowercase(), 
+        seg.0.book.instrumento.clone().to_lowercase(), 
+        seg.0.titulo.clone(),
+        seg.0.capitulo.clone(), 
+        seg.0.articulo.clone(),
+        seg.0.parte.clone(), 
+        seg.1.clone(), 
+        Vec::new()));
+    }
+    // Save document of law
+    save_file_of_law(&phrase_of_law.clone(), law_index);
+  }
+}
 // Given a catalogue of Law this function reads, interprests and dumps a TsahduCatalogue
 pub fn interpret_law(book: &LawBook) {
   let current_law_index =  &mut LawIndex {
@@ -159,17 +176,38 @@ pub fn interpret_law(book: &LawBook) {
       &utils::substring(text_of_law, 
         mark.get(0).unwrap().2.end, 
         mark.get(1).unwrap().2.start));
-    let segments = segment_phrase_of_law(phrase_of_law, current_law_index);
-    if !segments.is_empty() {
-      // create catalogues
-      // create reference of law
-    }
+    law_mech(phrase_of_law, &current_law_index);
   }
   advance_mark(current_law_index, marks.last().unwrap());
   let phrase_of_law = &clean_phrase_of_law(&
     utils::substring(text_of_law, 
       marks.last().unwrap().2.end, 
       text_of_law.len()));
-  let segments = segment_phrase_of_law(phrase_of_law, current_law_index);
+  law_mech(phrase_of_law, &current_law_index);
+}
 
+pub fn law_index_filename(index: &LawIndex) -> String {
+  format!(
+r#"{}.{}.titulo-{}.capitulo-{}.articulo-{}{}"#,
+    index.book.pais,
+    index.book.instrumento,
+    index.titulo,
+    index.capitulo,
+    index.articulo,
+    if index.parte.is_none() {"".to_string()}  else {format!(".parte-{}",index.parte.unwrap()).to_string()})
+}
+
+pub fn save_file_of_law(phrase_of_law: &String, index: &LawIndex) {
+  let folder_name = format!("{}{}.{}/",
+    utils::config_laws_folder(),
+    index.book.pais,
+    index.book.instrumento);
+  let file_name = format!("{}{}{}",
+    folder_name,
+    law_index_filename(index),
+    utils::config_law_extension()
+  );
+  create_dir_all(folder_name).unwrap();
+  fs::write(file_name.clone(), phrase_of_law.clone())
+    .expect(format!("{}{}",utils::error_message("E0012").as_str(),file_name).as_str());
 }

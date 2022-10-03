@@ -4,7 +4,7 @@ en_model = "all-MiniLM-L12-v2"
 es_model = "sentence_similarity_spanish_es"
 vocab_filename = "/vocab.txt"
 
-catalogue_folder = "resources/catalogue/"
+catalogue_folder = "resources/catalogues/"
 encodings_folder = "resources/encodings/"
 reference_folder = "resources/reference/"
 laws_folder = "resources/laws/"

@@ -36,30 +36,6 @@ fn ping() -> String {
     instrumento:String::from("constitucion"),
   };
   laws::interpret_law(aux);
-//   laws::mark_interrupt(&aux,&String::from(
-//     r#"
-// TITULO 1, CAPITULO 0 - Artículo 1.
-// Colombia es un Estado social de derecho, organizado en forma de
-// República unitaria, descentralizada, con autonomía de sus entidades territoriales,
-// democrática, participativa y pluralista, fundada en el respeto de la dignidad humana, en
-// el trabajo y la solidaridad de las personas que la integran y en la prevalencia del interés
-// general.
-// TITULO 11, CAPITULO 1 - Artículo 2.
-// Son fines esenciales del Estado: servir a la comunidad, promover la
-// prosperidad general y garantizar la efectividad de los principios, derechos y deberes
-// consagrados en la Constitución; facilitar la participación de todos en las decisiones que
-// los afectan y en la vida económica, política, administrativa y cultural de la Nación;
-// defender la independencia nacional, mantener la integridad territorial y asegurar la
-// convivencia pacifica y la vigencia de un orden justo.
-// Las autoridades de la República están instituidas para proteger a todas las personas
-// residentes en Colombia, en su vida, honra, bienes, creencias, y demás derechos y
-// libertades, y para asegurar el cumplimiento de los deberes sociales del Estado y de los
-// particulares.
-// TITULO 10, CAPITULO 2 - Artículo 3.
-// La soberanía reside exclusivamente en el pueblo, del cual emana el poder
-// público. El pueblo la ejerce en forma directa o por medio de sus representantes, en los
-// términos que la Constitución establece."#
-//   ));
   return String::from("pong");
 }
 #[get("/norm/<phrase>")]
