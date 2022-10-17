@@ -13,10 +13,11 @@ mod transformer;
 mod server;
 mod utils;
 mod laws;
+mod files;
+mod figures;
 mod catalogue;
 
 #[launch]
 fn tsahdu() -> _ {
-  catalogue::load_catalogues_memory(true);
   rocket::build().attach(server::stage())
 }

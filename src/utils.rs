@@ -3,6 +3,7 @@ use std::{
   io::{self, BufRead, BufReader},
   path::Path,
 };
+use walkdir::DirEntry;
 use config::Config;
 use std::collections::HashMap;
 use std::str::FromStr;
@@ -52,7 +53,10 @@ pub fn substring(text: &String, start: usize, end: usize) -> String {
 pub fn lines_from_file(filename: impl AsRef<Path>) -> io::Result<Vec<String>> {
   BufReader::new(File::open(filename)?).lines().collect()
 }
-
+// extracts the name of a file from a entry dir
+pub fn name_from_dir_entry(filepath: &DirEntry) -> String {
+  return filepath.file_name().to_str().unwrap().to_string();
+}
 // Reads a configuration file
 pub fn read_config_file(filepath: &str) -> HashMap<String, String> {
   Config::builder()
@@ -107,15 +111,6 @@ pub fn config_model_path() -> String {
 pub fn config_vocab_file() -> String {
   return format!("{}{}",config_model_path().as_str().to_owned(),config_vocab_filename().as_str().to_owned());
 }
-
-// Get the catalogues folder
-pub fn config_catalogues_folder() -> String {
-  return tsahdu_config().get("catalogue_folder").expect(format!("Key not found in Config: catalogue_folder").as_str()).clone();
-}
-// Get the encodings folder
-pub fn config_encodings_folder() -> String {
-  return tsahdu_config().get("encodings_folder").expect(format!("Key not found in Config: encodings_folder").as_str()).clone();
-}
 // Get the reference folder
 pub fn config_reference_folder() -> String {
   return tsahdu_config().get("reference_folder").expect(format!("Key not found in Config: reference_folder").as_str()).clone();
@@ -124,13 +119,9 @@ pub fn config_reference_folder() -> String {
 pub fn config_laws_folder() -> String {
   return tsahdu_config().get("laws_folder").expect(format!("Key not found in Config: laws_folder").as_str()).clone();
 }
-// Get the catalogues extension
-pub fn config_catalogues_extension() -> String {
-  return tsahdu_config().get("catalogue_extension").expect(format!("Key not found in Config: catalogue_extension").as_str()).clone();
-}
-// Get the encodings extension
-pub fn config_encodings_extension() -> String {
-  return tsahdu_config().get("encodings_extension").expect(format!("Key not found in Config: encodings_extension").as_str()).clone();
+// Get the embeddings extension
+pub fn config_embeddings_extension() -> String {
+  return tsahdu_config().get("embeddings_extension").expect(format!("Key not found in Config: embeddings_extension").as_str()).clone();
 }
 // Get the reference extension
 pub fn config_reference_extension() -> String {
@@ -153,4 +144,20 @@ pub fn config_law(book: &laws::LawBook) -> HashMap<String,String> {
       book.instrumento,
       config_law_config_extension());
   return read_config_file(search_for.as_str());
+}
+// Get the minimum_window_size
+pub fn config_minimum_window_size() -> String {
+  return tsahdu_config().get("minimum_window_size").expect(format!("Key not found in Config: minimum_window_size").as_str()).clone();
+}
+// Get the maximum_window_size
+pub fn config_maximum_window_size() -> String {
+  return tsahdu_config().get("maximum_window_size").expect(format!("Key not found in Config: maximum_window_size").as_str()).clone();
+}
+// Get the window_retrocede
+pub fn config_window_retrocede() -> String {
+  return tsahdu_config().get("window_retrocede").expect(format!("Key not found in Config: window_retrocede").as_str()).clone();
+}
+// Get the return_count
+pub fn config_return_count() -> usize {
+  return atoi::<usize>(tsahdu_config().get("return_count").expect(format!("Key not found in Config: return_count").as_str())).expect("wrong configuration, return_count must be a numeric string");
 }

@@ -1,144 +1,102 @@
 use lazy_static::lazy_static;
 use std::collections::HashMap;
 use std::sync::Mutex;
-use std::fs;
-use std::fs::DirEntry;
 use std::fs::create_dir_all;
 use rocket::serde::{Serialize, Deserialize};
-use std::cmp::Eq;
+use walkdir::WalkDir;
 
+use crate::transformer::EmbeddingType;
 use crate::utils;
 use crate::language;
 use crate::transformer;
-use crate::cryptography;
+use crate::mathematics;
+use crate::files;
 use crate::laws;
 
+#[derive(Debug)]
 #[derive(Clone)]
-#[derive(Hash,Eq,PartialEq)]
 #[derive(Serialize, Deserialize)]
 #[serde(crate = "rocket::serde")]
-pub struct TsahduCatalogueReference {
+pub struct Catalogue {
   pub dindex: laws::LawIndex,
-  pub dref: String
-}
-
-#[derive(Clone)]
-#[derive(Serialize, Deserialize)]
-#[serde(crate = "rocket::serde")]
-pub struct TsahduCatalogue {
-  pub reference: TsahduCatalogueReference,
-  pub phrase: language::Phrase,
-  pub encoding: Vec<f32>
+  pub dmeaning: transformer::Meaning
 }
 
 lazy_static! {
-  static ref CATALOGUES_MEMORY: Mutex<HashMap<String,TsahduCatalogue>> = Mutex::new(
+  static ref CATALOGUES_MEMORY: Mutex<HashMap<laws::LawIndex,Catalogue>> = Mutex::new(
     HashMap::new()
   );
 }
 
-pub fn name_from_dir_entry(filepath: &DirEntry) -> String {
-  return filepath.file_name().to_str().unwrap().to_string();
-}
-
-pub fn read_reference_file(filepath: &DirEntry) -> (String, String, String, u16, u16, u16, Option<u16>) {
-  let filecontent = utils::read_config_file(filepath.path().as_os_str().to_str().unwrap());
-  let dref = filecontent["dref"].clone();
-  let pais = filecontent["pais"].clone();
-  let instrumento = filecontent["instrumento"].clone();
-  let titulo = filecontent["titulo"].parse::<u16>().unwrap();
-  let capitulo = filecontent["capitulo"].parse::<u16>().unwrap();
-  let articulo = filecontent["articulo"].parse::<u16>().unwrap();
-  let parte = filecontent["parte"].parse::<i16>().unwrap();
-  let parte: Option<u16> = if parte<0 { None } else { Some(parte.try_into().unwrap()) };
-  return (dref,pais,instrumento, titulo,capitulo, articulo,parte);
-}
-
-pub fn catalogue_reference_to_string(reference: &TsahduCatalogueReference) -> String {
-  format!(
-r#"pais = "{}"
-instrumento = "{}"
-titulo = "{}"
-capitulo = "{}"
-articulo = "{}"
-parte = "{}"
-dref = "{}""#,
-  reference.dindex.book.pais,
-  reference.dindex.book.instrumento,
-  reference.dindex.titulo,
-  reference.dindex.capitulo,
-  reference.dindex.articulo,
-  if reference.dindex.parte.is_none() {"-1".to_string()}  else {format!("{}",reference.dindex.parte.unwrap()).to_string()},
-  reference.dref)
-}
-
-pub fn consult_catalogues_memory(dref: &String) -> String {
-  if !(CATALOGUES_MEMORY.lock().unwrap().contains_key(dref)) {
-    return utils::error_message("E0009");
+pub fn consult_catalogues_memory(dindex: &laws::LawIndex) -> Catalogue {
+  if !(CATALOGUES_MEMORY.lock().unwrap().contains_key(dindex)) {
+    load_catalogues_memory(false);
   }
-  return CATALOGUES_MEMORY.lock().unwrap().get(dref).unwrap().phrase.text.clone();
+  CATALOGUES_MEMORY.lock().unwrap().get(dindex)
+    .expect(utils::error_message("E0009").as_str()).to_owned()
 }
 
+pub fn compare_embedding_against_law_book(embedding: &transformer::Embedding, book: &laws::LawBook) -> Vec<(laws::LawIndex,f32)>{
+  let mut aux = CATALOGUES_MEMORY.lock().unwrap()
+    .iter().filter(|(dindex,dcatalogue)| 
+      dindex.book==*book)
+      .collect::<HashMap<&laws::LawIndex,&Catalogue>>()
+    .iter().map(|(&dindex,dcatalogue)| 
+      (dindex.clone(),transformer::embeddings_vectors_distance(&embedding.vector.clone().unwrap(), &dcatalogue.dmeaning.embedding.vector.clone().unwrap())))
+      .collect::<Vec<(laws::LawIndex,f32)>>();
+  aux.sort_by(|a,b| a.1.partial_cmp(&b.1).unwrap());
+  return aux[0..utils::config_return_count()].to_vec();
+}
+
+pub fn load_catalogues_memory_item(law_index: &laws::LawIndex, etype: transformer::EmbeddingType) {
+  let phrase_of_law = files::read_phrase_of_law(law_index);
+  let embedding = &Some(utils::lines_from_file(&files::embeddings_filename(&law_index))
+    .expect(format!("{} : {}",utils::error_message("E0003").as_str(),&files::embeddings_filename(&law_index)).as_str())
+    .iter().map(|x| x.parse::<f32>().unwrap()).collect::<Vec<f32>>());
+  CATALOGUES_MEMORY.lock().unwrap().insert(
+    law_index.clone(),
+    catalogue_fabric(
+      law_index.book.pais.clone(),
+      law_index.book.instrumento.clone(),
+      law_index.titulo,
+      law_index.capitulo,
+      law_index.articulo,
+      law_index.parte,
+      &language::phrase_fabric(phrase_of_law),
+      etype,
+      embedding
+    )
+  );
+}
 pub fn load_catalogues_memory(force_load: bool) {
-  for dpath in fs::read_dir(utils::config_reference_folder()).expect("Catalogues folder not found") {
-    let filename = name_from_dir_entry(&dpath.as_ref().unwrap());
-    println!("Loading file to CATALOGUES_MEMORY: [{}]",filename);
+  // for dpath in fs::read_dir(utils::config_reference_folder()).expect("Catalogues folder not found") {
+  for dpath in WalkDir::new(utils::config_reference_folder()).into_iter().filter_map(|e| e.ok()) {
+    let filename = utils::name_from_dir_entry(&dpath);
     if !(filename.ends_with(&utils::config_reference_extension())) {
       continue;
     }
-    let (dref,pais,instrumento,titulo,capitulo,articulo,parte) = 
-      read_reference_file(&dpath.as_ref().unwrap());
-    if !(force_load || !(CATALOGUES_MEMORY.lock().unwrap().contains_key(&dref))) {
+    let (law_index, etype) = files::read_reference_file(&dpath);
+    if !(force_load || !(CATALOGUES_MEMORY.lock().unwrap().contains_key(&law_index))) {
       continue;
     }
-    let catalogue_dpath = 
-      format!("{}{}{}",utils::config_catalogues_folder(),dref.as_str(),utils::config_catalogues_extension());
-    let encoding_dpath = 
-      format!("{}{}{}",utils::config_encodings_folder(),dref.as_str(),utils::config_encodings_extension());
-    let text = fs::read_to_string(&catalogue_dpath)
-      .expect(format!("{} : {}",utils::error_message("E0002").as_str(),&catalogue_dpath).as_str());
-    let encoding = utils::lines_from_file(&encoding_dpath)
-      .expect(format!("{} : {}",utils::error_message("E0003").as_str(),&encoding_dpath).as_str())
-      .iter().map(|x| x.parse::<f32>().unwrap()).collect::<Vec<f32>>();
-    CATALOGUES_MEMORY.lock().unwrap().insert(
-      dref,
-      catalogue_fabric(
-        pais,
-        instrumento,
-        titulo,
-        capitulo,
-        articulo,
-        parte,
-        text,
-        encoding)
-    );
+    println!("Loading file to CATALOGUES_MEMORY: [{}]",filename);
+    load_catalogues_memory_item(&law_index, etype);
   }
 }
 
-pub fn save_catalogue(doc: &TsahduCatalogue) {
-  let reference_foldername = format!("{}",utils::config_reference_folder());
-  let catalogue_foldername = format!("{}",utils::config_catalogues_folder());
-  let encodings_foldername = format!("{}",utils::config_encodings_folder());
-  create_dir_all(reference_foldername.clone()).unwrap();
-  create_dir_all(catalogue_foldername.clone()).unwrap();
-  create_dir_all(encodings_foldername.clone()).unwrap();
-  let reference_filename = format!("{}{}{}",reference_foldername.clone(),&laws::law_index_filename(&doc.reference.dindex),utils::config_reference_extension());
-  let catalogue_filename = format!("{}{}{}",catalogue_foldername.clone(),&doc.reference.dref,utils::config_catalogues_extension());
-  let encodings_filename = format!("{}{}{}",encodings_foldername.clone(),&doc.reference.dref,utils::config_encodings_extension());
-  fs::write(reference_filename.clone(),catalogue_reference_to_string(&doc.reference))
-    .expect(format!("{}: {}",utils::error_message("E0008"),reference_filename.clone()).as_str());
-  fs::write(catalogue_filename.clone(),&doc.phrase.text)
-    .expect(format!("{}: {}",utils::error_message("E0004"),catalogue_filename.clone()).as_str());
-  fs::write(encodings_filename.clone(),&doc.encoding
-    .iter().map(|x| x.to_string()).collect::<Vec<String>>().join("\n"))
-    .expect(format!("{}: {}",utils::error_message("E0005"),encodings_filename.clone()).as_str());
+pub fn save_catalogue(doc: &Catalogue) {
+  create_dir_all(files::reference_foldername(&doc.dindex)).unwrap();
+  create_dir_all(files::embeddings_foldername(&doc.dindex)).unwrap();
+  files::write_reference_file(doc);
+  files::write_embeddings_file(doc);
 }
 
-pub fn reference_fabric(
-  pais:String, instrumento: String, 
-  titulo: u16, capitulo: u16, articulo: u16,
-  parte: Option<u16>) -> TsahduCatalogueReference {
-  return TsahduCatalogueReference {
+pub fn catalogue_fabric(
+  pais: String, instrumento: String, titulo: Option<u16>,
+  capitulo: Option<u16>, articulo: Option<u16>,
+  parte: Option<u16>, phrase_of_law: &language::Phrase, 
+  etype: transformer::EmbeddingType, embedding: &Option<Vec<f32>>) -> Catalogue {
+  return Catalogue {
     dindex: laws::LawIndex {
       book:laws::LawBook {
         pais:pais.to_lowercase(),
@@ -149,29 +107,51 @@ pub fn reference_fabric(
       articulo:articulo,
       parte:parte
     },
-    dref: cryptography::sha256_digest(format!("{}.{}.{}.{}.{}{}",
-      pais.to_lowercase(),
-      instrumento.to_lowercase(),
-      titulo,
-      capitulo,
-      articulo,
-      if parte.is_none() {"".to_string()}  else {format!(".{}",parte.unwrap()).to_string()})),
+    dmeaning: transformer::meaning_fabric(
+      phrase_of_law,
+      embedding,
+      etype
+    )
   }
 }
 
-pub fn catalogue_fabric(
-  pais: String, instrumento: String, titulo: u16,
-  capitulo: u16, articulo: u16,
-  parte: Option<u16>, text: String, encoding: Vec<f32>) -> TsahduCatalogue {
-  return TsahduCatalogue {
-    reference: reference_fabric(
-      pais.clone(),
-      instrumento.clone(), 
-      titulo.clone(),
-      capitulo.clone(), 
-      articulo.clone(),
-      parte.clone()), 
-    phrase: language::phrase_fabric(text.clone()), 
-    encoding: if encoding.is_empty() {transformer::transform_sentence(text.clone())} else {encoding.clone()}
+pub fn embedd_sentence(phrase_of_law: &language::Phrase, law_index: &laws::LawIndex) -> (Option<Vec<f32>>, EmbeddingType) {
+  let mut embedding: Option<Vec<f32>>= None;
+  let segments = language::segment_phrase_with_index(phrase_of_law, law_index);
+  let mut etype = transformer::EmbeddingType::Total;
+  if !segments.is_empty() {
+    let texts: Vec<String> = segments.iter().map(|x| x.1.text.clone()).collect::<Vec<String>>();
+    let encds = transformer::transform_sentences(&texts);
+    let encds_arr = mathematics::vec2d_axis_average::<f32>(&encds,0);
+    embedding = Some(encds_arr);
+    if segments.len() != 1 {
+      etype = transformer::EmbeddingType::Average;
+    }
+  } else {
+    if !phrase_of_law.text.is_empty() {
+      println!("[Warning]: catalogue_mech, phrase_of_law is found too short : <{}>",phrase_of_law.text);
+    }
+  }
+  return (embedding,etype);
+}
+// Generate catalogue for phrase of law
+pub fn catalogue_mech(phrase_of_law: &language::Phrase, law_index: &laws::LawIndex) {
+  let (embd, etype) = embedd_sentence(phrase_of_law, law_index);
+  if embd.is_some() {
+    // Save catalgue
+    save_catalogue(&catalogue_fabric(
+      law_index.book.pais.clone().to_lowercase(), 
+      law_index.book.instrumento.clone().to_lowercase(), 
+      law_index.titulo.clone(),
+      law_index.capitulo.clone(), 
+      law_index.articulo.clone(),
+      None,
+      &phrase_of_law.clone(), 
+      etype.clone(),
+      &embd));
+    // Save document of law
+    files::write_file_of_law(&phrase_of_law.clone(), law_index);
+    // Load catalogue
+    load_catalogues_memory_item(law_index, etype.clone());
   }
 }
