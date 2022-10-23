@@ -44,7 +44,7 @@ pub fn phrase_fabric(text: String) -> Phrase {
 
 // Phrases of Law
 pub fn validate_phrase(phrase_of_law: &language::Phrase) -> TextOfLawValidation {
-  if phrase_of_law.text.split(" ").collect::<Vec<&str>>().len() < utils::atoi::<usize>(utils::config_minimum_window_size().as_str()).unwrap() {
+  if phrase_of_law.text == "" || phrase_of_law.text.split(" ").collect::<Vec<&str>>().len() < utils::atoi::<usize>(utils::config_minimum_window_size().as_str()).unwrap() {
     TextOfLawValidation::Short
   } else if phrase_of_law.text.split(" ").collect::<Vec<&str>>().len() > utils::atoi::<usize>(utils::config_maximum_window_size().as_str()).unwrap() {
     TextOfLawValidation::Long

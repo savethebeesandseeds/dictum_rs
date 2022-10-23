@@ -19,5 +19,12 @@ mod catalogue;
 
 #[launch]
 fn tsahdu() -> _ {
+  // // Interpet Law
+  // let aux = laws::LawBook {
+  //   pais:String::from("colombia"),
+  //   instrumento:String::from("constitucion"),
+  // };
+  // laws::interpret_law(&aux);
+
   rocket::build().attach(server::stage())
 }

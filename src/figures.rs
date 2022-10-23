@@ -3,7 +3,7 @@ use plotly::{common::{color::Rgb, Title}, Plot, Layout};
 use crate::transformer;
 use crate::mathematics;
 
-pub fn plot_example(sentence: &String) {
+pub fn plot_example() {
   // let data_y = Vec::from([1,2,3,4,5]);
   let data_y_1 = transformer::transform_sentence(&"love".to_string());
   let data_y_2 = transformer::transform_sentence(&"fear".to_string());

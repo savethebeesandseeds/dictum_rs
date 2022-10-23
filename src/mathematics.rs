@@ -11,7 +11,6 @@ pub fn euclidean_magnitude<T>(vec_a: &[T]) -> T
   }
   norm.sqrt()
 }
-
 pub fn vector_euclidean_distance<T>(vec_a: &[T], vec_b: &[T]) -> T 
   where T: std::ops::Sub + std::ops::Sub<Output = T> + std::ops::Mul 
   + std::ops::Mul<Output = T> + From<f32> + std::ops::AddAssign + num_traits::Float {
@@ -22,7 +21,6 @@ pub fn vector_euclidean_distance<T>(vec_a: &[T], vec_b: &[T]) -> T
   }
   euclidean_magnitude(&diff)
 }
-
 pub fn minkowski_magnitude<T>(vec_a: &[T], p: T) -> T 
   where T: std::convert::From<f32> + num_traits::Float + std::ops::AddAssign {
   let mut norm: T = 0.0f32.try_into().unwrap();
@@ -32,7 +30,6 @@ pub fn minkowski_magnitude<T>(vec_a: &[T], p: T) -> T
   }
   norm.powf(numerator/p)
 }
-  
 pub fn vector_minkowski_distance<T>(vec_a: &[T], vec_b: &[T], p: T) -> T 
   where T: std::ops::Sub + std::convert::From<f32> + num_traits::Float + std::ops::AddAssign {
   let mut diff = Vec::new() as Vec<T>;
@@ -42,7 +39,6 @@ pub fn vector_minkowski_distance<T>(vec_a: &[T], vec_b: &[T], p: T) -> T
   }
   minkowski_magnitude(&diff, p)
 }
-
 pub fn vector_cosine_distance<T>(vec_a: &[T], vec_b: &[T]) -> T 
   where T: std::ops::Mul + std::ops::Mul<Output = T> + From<f32> + std::ops::AddAssign + num_traits::Float {
   assert!(vec_a.len() == vec_b.len(), "Vector lenghts must be equal for arguments in vector_cosine_distance");
@@ -52,13 +48,11 @@ pub fn vector_cosine_distance<T>(vec_a: &[T], vec_b: &[T]) -> T
   }
   numerator/euclidean_magnitude(vec_a)/euclidean_magnitude(vec_b)
 }
-
-
-// pub fn slices_vecs_to_vect_of_slices<T>(input: &[Vec<T>]) -> Vec<&[T]> {
-//   input.iter().map(Vec::as_slice).collect::<Vec<&[T]>>()
-// }
-// slices_vecs_to_vect_of_slices::<T>(input.as_slice()).as_slice(); -> &[&[T]]
-
+pub fn dot_product<T>(vec_a: &[T], vec_b: &[T]) -> T 
+  where T: std::ops::Mul + std::ops::Mul<Output = T> + From<f32> + std::ops::AddAssign + num_traits::Float + std::iter::Sum {
+  assert!(vec_a.len() == vec_b.len(), "Vector lenghts must be equal for arguments in dot_product");
+  vec_a.iter().zip(vec_b.iter()).map(|(&a,&b)| a * b).sum()
+}
 pub fn transpose_vec2d<T>(input: Vec<Vec<T>>) -> Vec<Vec<T>> {
   assert!(!input.is_empty());
   let dlen = input[0].len();
@@ -67,7 +61,6 @@ pub fn transpose_vec2d<T>(input: Vec<Vec<T>>) -> Vec<Vec<T>> {
     diter.iter_mut().map(|x2| x2.next().unwrap()).collect::<Vec<T>>()
   }).collect()
 }
-
 pub fn nonsimd_sum<T>(values: &[T]) -> T 
   where T: 'static + num_traits::Num + Copy + std::iter::Sum + std::ops::AddAssign + num_traits::Zero + From<f32> {
   let chunks = values.chunks_exact(LANES);
@@ -121,11 +114,31 @@ pub fn vec1d_normalize_mu2<T>(input: &Vec<T>) -> Vec<T>
     let magnitude: T = vec1d_sum::<T>(&input.iter().map(|&x|x.abs()).collect::<Vec<T>>());
     input.iter().map(|x| *x/magnitude).collect::<Vec<T>>()
 }
+pub fn vec1d_normalize_mu3<T>(input: &Vec<T>) -> Vec<T> 
+  where T: 'static + num_traits::Num + Copy + std::iter::Sum + std::ops::AddAssign 
+    + num_traits::Zero + From<f32> + num_traits::Float {
+    let magnitude: T = (vec1d_sum::<T>(&input.iter().map(|&x|x * x).collect::<Vec<T>>())).sqrt();
+    input.iter().map(|x| *x/magnitude).collect::<Vec<T>>()
+}
 pub fn vec1d_binary_entropy<T>(input: &Vec<T>) -> T 
   where T: 'static + num_traits::Num + Copy + std::iter::Sum + std::ops::AddAssign + num_traits::Zero + From<f32>  + Real {
     <f32 as TryInto<T>>::try_into(1.0f32).unwrap() * nonsimd_sum::<T>(input.iter().map(|x| (*x)*x.log2()).collect::<Vec<T>>().as_slice())
 }
 pub fn vec1d_normalize_binary_entropy<T>(input: &Vec<T>) -> T 
   where T: 'static + num_traits::Num + Copy + std::iter::Sum + std::ops::AddAssign + num_traits::Zero + From<f32>  + Real +  num_traits::Float {
-    vec1d_binary_entropy::<T>(&vec1d_normalize_mu2::<T>(input))
+    vec1d_binary_entropy::<T>(&vec1d_normalize_mu3::<T>(input))
+}
+pub fn embeddings_entropy(embeddings: &Vec<Vec<f32>>) -> Vec<f32> {
+  return embeddings.iter().map(|v| 
+    vec1d_normalize_binary_entropy(&v.iter().map(|x| x.abs())
+    .collect::<Vec<f32>>())).collect::<Vec<f32>>();
+  // let negative_entropy = embeddings.iter().map(|v| 
+  //   v.iter().filter(|&&vsplit| vsplit<0.0f32).collect::<Vec<&f32>>()).collect::<Vec<Vec<&f32>>>()
+  //   .iter().map(|x| vec1d_normalize_binary_entropy::<f32>(&x.iter().map(|x| (-1.0f32)*(**x)).collect::<Vec<f32>>())).collect::<Vec<f32>>();
+  // let positive_entropy = embeddings.iter().map(|v| 
+  //   v.iter().filter(|&&vsplit| vsplit>=0.0f32).collect::<Vec<&f32>>()).collect::<Vec<Vec<&f32>>>()
+  //   .iter().map(|x| vec1d_normalize_binary_entropy::<f32>(&x.iter().map(|x| **x).collect::<Vec<f32>>())).collect::<Vec<f32>>();
+  // println!("negative_entropy: {:?}",negative_entropy);
+  // println!("positive_entropy: {:?}",positive_entropy);
+  // (negative_entropy,positive_entropy)
 }

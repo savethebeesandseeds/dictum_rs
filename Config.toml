@@ -1,4 +1,4 @@
-language = "en" # valid languages are {"es"/"en"}, changes to language requires restarting the server
+language = "es" # valid languages are {"es"/"en"}, changes to language requires restarting the server
 models_path = "resources/transformers/"
 en_model = "all-MiniLM-L12-v2"
 es_model = "sentence_similarity_spanish_es"
@@ -13,8 +13,9 @@ reference_extension = ".toml"
 laws_extension = ".law"
 laws_config_extension = ".config.toml"
 
-minimum_window_size = "6"   # min amount of words in a phrase of law
+minimum_window_size = "1"   # min amount of words in a phrase of law
 maximum_window_size = "450" # max amount of words in a phrase of law
 window_retrocede = "64"     # if maximum_window_size is superated how many words to go back
 
 return_count = "5" # amount of references to be returned out of a search
+return_min_value = "10000" # minimun comparison value for a reference to be considered 

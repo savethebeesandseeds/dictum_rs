@@ -49,7 +49,7 @@ pub fn embeddings_vectors_distance(vec_a: &Vec<f32>, vec_b: &Vec<f32>) -> f32 {
 pub fn transform_sentences(sentences: &Vec<String>) -> Vec<Vec<f32>> {
   // Generate Embeddings
   TRANSFORMER.lock().unwrap().encode(sentences).expect(utils::error_message("E0007").as_str())
-    .iter().map(|x| mathematics::vec1d_normalize_mu2::<f32>(&x.to_vec())).collect()
+    .iter().map(|x| mathematics::vec1d_normalize_mu3::<f32>(&x.to_vec())).collect()
 }
 
 // Transforms a sentence
@@ -68,29 +68,13 @@ pub fn transform_phrases(phrases_of_law: &Vec<language::Phrase>) -> Vec<Option<V
   return ret;
 }
 
-// Transforms a Phrase
-// Requires a sentence, of any length
+// Transforms a Phrase of any Length to a Embedding Vector
 pub fn transform_phrase(phrase_of_law: &language::Phrase) -> Option<Vec<f32>> {
   let segments = language::segment_phrase(phrase_of_law);
   if segments.is_empty() {return None;}
   let texts: Vec<String> = segments.iter().map(|x| x.text.clone()).collect::<Vec<String>>();
   let encds = transform_sentences(&texts);
   return Some(mathematics::vec2d_axis_average::<f32>(&encds,0));
-}
-
-pub fn embeddings_entropy(embeddings: &Vec<Vec<f32>>) -> Vec<f32> {
-  return embeddings.iter().map(|v| 
-    mathematics::vec1d_normalize_binary_entropy(&v.iter().map(|x| x.abs())
-    .collect::<Vec<f32>>())).collect::<Vec<f32>>();
-  // let negative_entropy = embeddings.iter().map(|v| 
-  //   v.iter().filter(|&&vsplit| vsplit<0.0f32).collect::<Vec<&f32>>()).collect::<Vec<Vec<&f32>>>()
-  //   .iter().map(|x| mathematics::vec1d_normalize_binary_entropy::<f32>(&x.iter().map(|x| (-1.0f32)*(**x)).collect::<Vec<f32>>())).collect::<Vec<f32>>();
-  // let positive_entropy = embeddings.iter().map(|v| 
-  //   v.iter().filter(|&&vsplit| vsplit>=0.0f32).collect::<Vec<&f32>>()).collect::<Vec<Vec<&f32>>>()
-  //   .iter().map(|x| mathematics::vec1d_normalize_binary_entropy::<f32>(&x.iter().map(|x| **x).collect::<Vec<f32>>())).collect::<Vec<f32>>();
-  // println!("negative_entropy: {:?}",negative_entropy);
-  // println!("positive_entropy: {:?}",positive_entropy);
-  // (negative_entropy,positive_entropy)
 }
 
 pub fn meaning_fabric(phrase_of_law: &language::Phrase, dembedding: &Option<Vec<f32>>, etype: EmbeddingType) -> Meaning {

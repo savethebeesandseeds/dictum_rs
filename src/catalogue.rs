@@ -23,7 +23,7 @@ pub struct Catalogue {
 }
 
 lazy_static! {
-  static ref CATALOGUES_MEMORY: Mutex<HashMap<laws::LawIndex,Catalogue>> = Mutex::new(
+  pub static ref CATALOGUES_MEMORY: Mutex<HashMap<laws::LawIndex,Catalogue>> = Mutex::new(
     HashMap::new()
   );
 }
@@ -42,10 +42,14 @@ pub fn compare_embedding_against_law_book(embedding: &transformer::Embedding, bo
       dindex.book==*book)
       .collect::<HashMap<&laws::LawIndex,&Catalogue>>()
     .iter().map(|(&dindex,dcatalogue)| 
-      (dindex.clone(),transformer::embeddings_vectors_distance(&embedding.vector.clone().unwrap(), &dcatalogue.dmeaning.embedding.vector.clone().unwrap())))
+      (dindex.clone(),transformer::embeddings_vectors_distance(
+        &embedding.vector.clone().unwrap(), 
+        &dcatalogue.dmeaning.embedding.vector.clone().unwrap())))
       .collect::<Vec<(laws::LawIndex,f32)>>();
   aux.sort_by(|a,b| a.1.partial_cmp(&b.1).unwrap());
-  return aux[0..utils::config_return_count()].to_vec();
+  return aux[0..utils::config_return_count()].to_vec().iter()
+    .filter(|x| x.1 < utils::config_return_min_value()).map(|x| x.to_owned())
+    .collect::<Vec<(laws::LawIndex,f32)>>();
 }
 
 pub fn load_catalogues_memory_item(law_index: &laws::LawIndex, etype: transformer::EmbeddingType) {

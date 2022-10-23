@@ -18,6 +18,13 @@ struct CompareRequest {
 }
 #[derive(Serialize, Deserialize)]
 #[serde(crate = "rocket::serde")]
+struct SearchRequest {
+  phrase: language::Phrase,
+  pais: String,
+  instrumento: String
+}
+#[derive(Serialize, Deserialize)]
+#[serde(crate = "rocket::serde")]
 struct InformRequest {
   phrase: language::Phrase,
   pais: String,
@@ -30,11 +37,14 @@ struct InformRequest {
 
 #[get("/ping")]
 fn ping() -> String {
+  // // Interpet Law
   // let aux = laws::LawBook {
   //   pais:String::from("colombia"),
   //   instrumento:String::from("constitucion"),
   // };
   // laws::interpret_law(&aux);
+  
+  // // Consult
   // let adux = laws::LawIndex {
   //   book:aux,
   //   titulo:Some(1),
@@ -44,19 +54,19 @@ fn ping() -> String {
   // };
   // let ret = catalogue::consult_catalogues_memory(&adux);
   
-  // Generate Embeddings
-  let phrase = language::phrase_fabric("Colombia es un Estado social de derecho, organizado en forma de República unitaria, descentralizada, con autonomía de sus entidades territoriales, democrática, participativa y pluralista, fundada en el respeto de la dignidad humana, en el trabajo y la solidaridad de las personas que la integran y en la prevalencia del interés general.".to_string());
-  let embedding = transformer::transform_phrase(&phrase);
-  // Compare against LawBook
-  let book = &laws::LawBook {
-    pais: "colombia".to_string(),
-    instrumento: "constitucion".to_string()
-  };
-  let embd = &transformer::Embedding {
-    vector:embedding.clone(),
-    etype: transformer::EmbeddingType::Total
-  };
-  dbg!(catalogue::compare_embedding_against_law_book(embd, book));
+  // // Generate Embeddings
+  // let phrase = language::phrase_fabric("Colombia es un Estado social de derecho, organizado en forma de República unitaria, descentralizada, con autonomía de sus entidades territoriales, democrática, participativa y pluralista, fundada en el respeto de la dignidad humana, en el trabajo y la solidaridad de las personas que la integran y en la prevalencia del interés general.".to_string());
+  // let embedding = transformer::transform_phrase(&phrase);
+  // // Compare against LawBook
+  // let book = &laws::LawBook {
+  //   pais: "colombia".to_string(),
+  //   instrumento: "constitucion".to_string()
+  // };
+  // let embd = &transformer::Embedding {
+  //   vector:embedding.clone(),
+  //   etype: transformer::EmbeddingType::Total
+  // };
+  // dbg!(catalogue::compare_embedding_against_law_book(embd, book));
   
 
   // let mut encds: Vec<Vec<f32>> = Vec::new();
@@ -69,6 +79,29 @@ fn ping() -> String {
   // println!("average: 1 : {:?}",mathematics::vec2d_axis_average::<f32>(encds.clone(),1));
   return String::from("pong");
 }
+
+#[post("/search", format="json", data = "<payload>")]
+fn phrase_search_post(payload: Json<SearchRequest>) -> String {//Json<Vec<(laws::LawIndex,f32)>> {
+  // Generate Embeddings
+  let embedding = transformer::transform_phrase(&payload.phrase);
+  if embedding.is_some() {
+    // Compare against LawBook
+    dbg!(catalogue::compare_embedding_against_law_book(
+      &transformer::Embedding {
+        vector:embedding.clone(),
+        etype: transformer::EmbeddingType::Total
+      }, 
+      &laws::LawBook {
+        pais: payload.pais.clone(),
+        instrumento: payload.instrumento.clone()
+      }));
+    "ok".to_string()
+  } else {
+    "phrase is too short, not undersootd".to_string()
+  }
+    // Json::try_from().unwrap();
+}
+
 #[get("/norm/<phrase>")]
 fn phrase_norm_get(phrase: String) -> String {
   // Sentences
@@ -77,7 +110,7 @@ fn phrase_norm_get(phrase: String) -> String {
   let embeddings = transformer::transform_sentences(&sentences);
   // Return
   format!("Phrase: {:?}, norm: {:?}, entropy: {:?}", 
-    phrase, mathematics::euclidean_magnitude(&embeddings[0]), transformer::embeddings_entropy(&embeddings))
+    phrase, mathematics::euclidean_magnitude(&embeddings[0]), mathematics::embeddings_entropy(&embeddings))
 }
 
 #[post("/norm", format="json", data = "<payload>")]
@@ -158,6 +191,7 @@ pub fn stage() -> rocket::fairing::AdHoc {
       phrases_distance_get,
       phrase_norm_post,
       phrases_distance_post,
+      phrase_search_post,
       // inform_post
       ])
     .register("/", catchers![not_found])

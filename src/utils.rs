@@ -46,6 +46,7 @@ pub fn overlaping_chunks<T: Clone>(input: &Vec<T>, chunk_size: usize, overlap_si
   return ret;
 }
 
+// Extracts a substring
 pub fn substring(text: &String, start: usize, end: usize) -> String {
   text[start..end].to_string()
 }
@@ -160,4 +161,8 @@ pub fn config_window_retrocede() -> String {
 // Get the return_count
 pub fn config_return_count() -> usize {
   return atoi::<usize>(tsahdu_config().get("return_count").expect(format!("Key not found in Config: return_count").as_str())).expect("wrong configuration, return_count must be a numeric string");
+}
+// Get the return_min_value
+pub fn config_return_min_value() -> f32 {
+  return tsahdu_config().get("return_min_value").expect(format!("Key not found in Config: return_min_value").as_str()).parse::<f32>().expect("wrong configuration, return_min_value must be a numeric string");
 }

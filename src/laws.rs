@@ -1,12 +1,12 @@
-use lazy_static::lazy_static;
 use std::collections::HashMap;
-use std::sync::Mutex;
+use std::collections::HashSet;
 use rocket::serde::{Serialize, Deserialize};
 use std::cmp::Eq;
 use regex::Regex;
 use std::ops::Range;
 
 use crate::utils;
+use crate::mathematics;
 use crate::catalogue;
 use crate::language;
 use crate::files;
@@ -39,23 +39,7 @@ pub enum LawMark {
   Articulo
 }
 
-lazy_static! {
-  static ref LAWS_MEMORY: Mutex<HashMap<LawIndex,language::Phrase>> = Mutex::new(
-    HashMap::new()
-  );
-}
-
-pub fn consult_laws_memory(reference: &LawIndex) -> language::Phrase {
-  if !LAWS_MEMORY.lock().unwrap().contains_key(reference) {
-    load_law_memory();
-  }
-  return LAWS_MEMORY.lock().unwrap().get(reference)
-    .expect(format!("{}",utils::error_message("E0010")).as_str()).clone();
-}
-pub fn load_law_memory() {
-}
-
-// Marks
+// To advance a mark is to advance to the next article, to the next chapter or to the next title
 pub fn advance_mark(law_index: &mut LawIndex, mark: &(LawMark,u16,Range<usize>)) {
   match mark.0 {
     LawMark::Titulo   => {law_index.titulo   = Some(mark.1);}
@@ -63,6 +47,47 @@ pub fn advance_mark(law_index: &mut LawIndex, mark: &(LawMark,u16,Range<usize>))
     LawMark::Articulo => {law_index.articulo = Some(mark.1);}
   }
 }
+// Calculate the vector average of an entire Title
+pub fn title_average(book: &LawBook, titulo: u16) -> Vec<f32> {
+  mathematics::vec2d_axis_average::<f32>(&catalogue::CATALOGUES_MEMORY.lock().unwrap()
+    .iter().filter(|(dindex,_)| 
+      dindex.book==*book && dindex.titulo==Some(titulo))
+      .collect::<HashMap<&LawIndex,&catalogue::Catalogue>>()
+    .iter().map(|(_,dcatalogue)|
+      dcatalogue.dmeaning.embedding.vector.clone().unwrap())
+      .collect::<Vec<Vec<f32>>>(),0)
+}
+// Calculate the vector average of an entire Chapter
+pub fn chapter_average(book: &LawBook, titulo: u16, capitulo: u16) -> Vec<f32> {
+  mathematics::vec2d_axis_average::<f32>(&catalogue::CATALOGUES_MEMORY.lock().unwrap()
+    .iter().filter(|(dindex,_)| 
+      dindex.book==*book && dindex.titulo==Some(titulo) && dindex.capitulo==Some(capitulo))
+      .collect::<HashMap<&LawIndex,&catalogue::Catalogue>>()
+    .iter().map(|(_,dcatalogue)|
+      dcatalogue.dmeaning.embedding.vector.clone().unwrap())
+      .collect::<Vec<Vec<f32>>>(),0)
+}
+// Return all Titles in a Book
+pub fn all_titles(book: &LawBook) -> HashSet<Option<u16>> {
+  catalogue::CATALOGUES_MEMORY.lock().unwrap()
+  .iter().filter(|(dindex,_)| 
+    dindex.book == *book && 
+    dindex.titulo.is_some())
+  .map(|(pindex,_)| pindex.titulo).collect::<HashSet<Option<u16>>>()
+}
+// Return all Chapters in a Book's Title
+pub fn all_chapters_in_title(book: &LawBook, title: u16) -> HashSet<Option<u16>> {
+  catalogue::CATALOGUES_MEMORY.lock().unwrap()
+  .iter().filter(|(dindex, _)| 
+    dindex.book==*book && 
+    dindex.titulo.is_some() && 
+    dindex.capitulo.is_some() && 
+    dindex.titulo==Some(title))
+  .map(|(pindex,_)| pindex.capitulo).collect::<HashSet<Option<u16>>>()
+  // all_titles(book).iter().map(|dtitle| 
+  //   .collect::<HashSet<Option<u16>>>()
+}
+
 // Given a catalogue of Law this function reads, interprests and dumps a TsahduCatalogue
 pub fn interpret_law(book: &LawBook) {
   let current_law_index =  &mut LawIndex {
@@ -88,6 +113,18 @@ pub fn interpret_law(book: &LawBook) {
       marks.last().unwrap().2.end, 
       text_of_law.text.len())));
   catalogue::catalogue_mech(phrase_of_law, &current_law_index);
+  // Fabric Catalogue for all Average Titles 
+  all_titles(book).iter().for_each(|dtitle| 
+    make the catalogue for average items
+    (title_average(book, dtitle.unwrap()))
+  );
+  // Fabric Catalogue for all Average Chapters 
+  all_titles(book).iter().for_each(|dtitle| 
+    (*dtitle,all_chapters_in_title(book, dtitle.unwrap()))).collect::<Vec<(Option<u16>,HashSet<Option<u16>>)>>()
+    .iter().map(|(dtitle,dchapters)|
+      dchapters.iter().map(|pchapter|
+        chapter_average(book, dtitle.unwrap(),pchapter.unwrap())
+      ));
 }
 // Efective read of laws, returns markings of all aparitions of [Articulo, Titulo, Capitulo]
 pub fn mark_text_of_law(text_of_law: &language::Phrase, book: &LawBook) -> Vec<(LawMark, u16, Range<usize>)> {
@@ -103,7 +140,6 @@ pub fn mark_text_of_law(text_of_law: &language::Phrase, book: &LawBook) -> Vec<(
 
 // Regex
 pub fn regex_interpret_law(regex_expresion: &str, text: &String) -> Vec<(u16,Range<usize>)> {
-  dbg!(regex_expresion);
   Regex::new(regex_expresion).expect(format!("[{}] is not a regex expression",regex_expresion).as_str()).find_iter(text.as_str())
     .filter_map(|x| Some((utils::atoi::<u16>(x.as_str()).expect(format!("[{}] cannot be casted to atoi",x.as_str()).as_str()), x.range())))
     .collect::<Vec<(u16,Range<usize>)>>()
